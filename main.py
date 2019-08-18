@@ -27,7 +27,19 @@ def train(trainloader):
         optimizer.step()
     return loss
 
+
 num_epochs = 5
 for epoch in range(num_epochs):
-    train_loss = train()
+    model.train()
+    train_loss = train(trainloader)
     print('Epoch: [{}/{}]   loss: {}'.format(epoch+1, num_epochs, train_loss))
+    with torch.no_grad():
+      for i in range(32):
+        for j in range(32):
+          out = model(fixed_input)
+          print(out.shape)
+          out = out.view(144, 3, 256, 32, 32).permute(0, 1, 3, 4, 2)
+          softmax = F.Softmax()
+          out = softmax(out)
+          print(out.shape)
+    torchvision.utils.save_image(out, 'content', nrow=12, padding=0)
