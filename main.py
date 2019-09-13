@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 from model import PixelCNN
 
-trainset = datasets.MNIST('content',train=True, download=True,
-                          transform=tansforms.ToTensor())
+BATCH_SIZE = 32
+dataset = datasets.CIFAR10(root='cifar10', train=True,
+                           transform=transforms.ToTensor(), download=True)
 
-trainloader = torch.utils.data.DataLoader(datasets, batch_size=64, shuffle=True)
+trainloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
 model = PixelCNN().to(device)
@@ -28,18 +31,23 @@ def train(trainloader):
     return loss
 
 
-num_epochs = 5
+softmax = nn.Softmax(dim=1)
+def sample(sample, epoch):
+  with torch.no_grad():
+    for i in range(32):
+      for j in range(32):
+        out = model(sample)
+        probs = softmax(out[:, :, i, j]).data
+        for k in range(3):
+          pixel = torch.multinomial(probs[:, k], 1).float() / 255.
+          #print(pixel.shape)
+          #print(sample[:, k, i, j].shape)
+          #print(pixel.view(-1).shape, pixel)
+          sample[:, k, i, j] = pixel.view(-1)
+  torchvision.utils.save_image(sample, 'sample_{}.png'.format(epoch), nrow=8, padding=0)
+
+num_epochs = 50
 for epoch in range(num_epochs):
-    model.train()
     train_loss = train(trainloader)
-    print('Epoch: [{}/{}]   loss: {}'.format(epoch+1, num_epochs, train_loss))
-    with torch.no_grad():
-      for i in range(32):
-        for j in range(32):
-          out = model(fixed_input)
-          print(out.shape)
-          out = out.view(144, 3, 256, 32, 32).permute(0, 1, 3, 4, 2)
-          softmax = F.Softmax()
-          out = softmax(out)
-          print(out.shape)
-    torchvision.utils.save_image(out, 'content', nrow=12, padding=0)
+    print('[{}/{}]  loss: {}'.format(epoch+1, num_epochs, train_loss))
+    sample(fixed_input, epoch)
